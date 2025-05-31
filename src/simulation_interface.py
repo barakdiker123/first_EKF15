@@ -268,23 +268,34 @@ def simulation(sim_time,func_gt_acc,func_gt_gyro , Q , x_gt,x_est,P,accel_noise_
     
     state_errors[4] = errors_xg
     state_covs[4] = cov_diag_xa
+
+
+    state_labels_axis = [['Latitude[ Rad ]','Longitude[ Rad ]','Height[m]'],
+                    ['V_n[m/s]','V_e[m/s]','V_d[m/s]'],
+                     ['Pitch[ Rad ]','Roll[ Rad ]','Yaw[Rad]'],
+                     ['x[m/s^2]','y[m/s^2]','z[m/s^2]'],
+                     ['x[ Rad/s ]','y[ Rad/s ]','z[ Rad/s ]']]
+
+
+    
     # Create figure windows
     for state_index in range(5):
         fig, axs = plt.subplots(3, 1, figsize=(10, 8))
         fig.suptitle(f'{state_labels[state_index]} State Errors and 2σ Bounds')
-        axes_labels = ['X (North)', 'Y (East)', 'Z (Down)']
+        #axes_labels = ['X (North)', 'Y (East)', 'Z (Down)']
+        axes_labels = state_labels_axis[state_index]
 
         for i in range(3):
             axs[i].plot(time, state_errors[state_index, i], label='Error')
-            axs[i].plot(time, 1 * np.sqrt(state_covs[state_index, i]), 'r--', label='+2σ')
-            axs[i].plot(time, -1 * np.sqrt(state_covs[state_index, i]), 'r--', label='-2σ')
-            axs[i].set_ylabel(f'{axes_labels[i]} [m]')
+            axs[i].plot(time, 1 * np.sqrt(state_covs[state_index, i]), 'r--', label='+σ')
+            axs[i].plot(time, -1 * np.sqrt(state_covs[state_index, i]), 'r--', label='-σ')
+            axs[i].set_ylabel(f'{axes_labels[i]}')
             axs[i].grid(True)
             if i == 2:
                 axs[i].set_xlabel('Time [s]')
             axs[i].legend()
 
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        #plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()
 
 import numpy as np
@@ -322,13 +333,13 @@ if __name__ == "__main__":
     x_gt = (p_gt,v_gt , R_gt , b_a_gt , b_g_gt)
     
     p_est = np.array([np.pi/4 + 0.0001 , np.pi/4 + 0.0001, 0])
-    v_est = np.array([ 14,41,4])
-    R_S = strapdown.skew_symmetric([0.2,0.4,-0.3])
-    R_est = np.identity(3)
-    #R_est = alg.expm(R_S)
-    b_a_est = np.array([4.5, 10.2, -10.5])
+    v_est = np.array([ 14-40,41-100,4+100])
+    R_S = strapdown.skew_symmetric([1.2,-0.4,-6.3])
+    #R_est = np.identity(3)
+    R_est = alg.expm(R_S)
+    b_a_est = np.array([400.5, 100.2, -1000.5])
     #b_a_est = np.array([40.5, -100.2, -1000.5])
-    b_g_est = np.array([0.01, -0.02, 0.005])
+    b_g_est = np.array([10.01, -10.02, 1.105])
     #b_a_est = np.array([10.5, -10.2, -2.5])
     #b_g_est = np.array([1.0, -0.20, 0.5])
     x_est = (p_est,v_est , R_est , b_a_est , b_g_est)
@@ -336,8 +347,8 @@ if __name__ == "__main__":
     P[0,0] *= 0.000000003
     P[1,1] *= 0.000000003
     P[3:6, 3:6] *= 100
-    P[9:12, 9:12] *= 10**2
-    P[12:15, 12:15] *= 1
+    P[9:12, 9:12] *= 1000**2
+    P[12:15, 12:15] *= 5**2
     
     R_gps = np.eye(3) * 0.00009  # 3 m std dev
     R_gps[0,0] =0.0000000001  # 3 m std dev
@@ -348,4 +359,4 @@ if __name__ == "__main__":
     #gyro_noise_std = np.array(  [np.sqrt(Q[3, 3]) , np.sqrt(Q[4, 4]) ,np.sqrt(Q[5, 5]) ]  )
     accel_noise_std = np.array([ 20 , 20 , 20 ])
     gyro_noise_std = np.array( [ 0.3, 0.3 , 0.3 ]  )
-    simulation(100,func_acc_gt , func_gyro_gt , Q , x_gt,x_est, P,accel_noise_std ,gyro_noise_std,R_gps)
+    simulation(50,func_acc_gt , func_gyro_gt , Q , x_gt,x_est, P,accel_noise_std ,gyro_noise_std,R_gps)

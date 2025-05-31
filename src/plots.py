@@ -302,6 +302,17 @@ import matplotlib.pyplot as plt
 # Prepare data for plotting
 time = np.arange(steps) * dt
 state_labels = ['Position', 'Velocity', 'Orientation Error Euler ZYX', 'Accel Bias', 'Gyro Bias']
+state_labels_axis = {'Position':['Rad','Rad','m']
+                     , 'Velocity':['m/s','m/s','m/s'],
+                     'Orientation Error Euler ZYX': ['Rad','Rad','Rad'],
+                     'Accel Bias': ['m/s^2','m/s^2','m/s^2'],
+                     'Gyro Bias': ['Rad','Rad','Rad']}
+state_labels_axis = [['[ Rad ]','[ Rad ]','[ m ]'],
+                    ['[m/s]','[m/s]','[m/s]'],
+                     ['[ Rad ]','[ Rad ]','[ Rad ]'],
+                     ['[m/s^2]','[m/s^2]','[m/s^2]'],
+                     ['[ Rad ]','[ Rad ]','[ Rad ]']]
+
 
 # Simulated state errors and covariance (only position used so far, so we fill others with dummy zeros)
 state_errors = np.zeros((5, 3, steps))
@@ -325,14 +336,15 @@ state_covs[4] = cov_diag_xa
 # Create figure windows
 for state_index in range(5):
     fig, axs = plt.subplots(3, 1, figsize=(10, 8))
-    fig.suptitle(f'{state_labels[state_index]} State Errors and 2σ Bounds')
-    axes_labels = ['X (North)', 'Y (East)', 'Z (Down)']
+    fig.suptitle(f'{state_labels[state_index]} State Errors and σ Bounds')
+    axes_labels = state_labels_axis[state_index]
+    #axes_labels = ['X (North)', 'Y (East)', 'Z (Down)']
 
     for i in range(3):
         axs[i].plot(time, state_errors[state_index, i], label='Error')
-        axs[i].plot(time, 2 * np.sqrt(state_covs[state_index, i]), 'r--', label='+2σ')
-        axs[i].plot(time, -2 * np.sqrt(state_covs[state_index, i]), 'r--', label='-2σ')
-        axs[i].set_ylabel(f'{axes_labels[i]} [m]')
+        axs[i].plot(time, 1 * np.sqrt(state_covs[state_index, i]), 'r--', label='+σ')
+        axs[i].plot(time, -1 * np.sqrt(state_covs[state_index, i]), 'r--', label='-σ')
+        axs[i].set_ylabel(f'{axes_labels[i]}')
         axs[i].grid(True)
         if i == 2:
             axs[i].set_xlabel('Time [s]')
