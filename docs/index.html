@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2025-06-04 Wed 15:21 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EKF 15 States</title>
+<meta name="author" content="Barak-Nadav Diker" />
+<meta name="generator" content="Org Mode" />
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/htmlize.css"/>
+<link rel="stylesheet" type="text/css" href="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/css/readtheorg.css"/>
+<link rel="stylesheet" type="text/css" href="src/readtheorg_theme/css/search.css"/>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/lib/js/jquery.stickytableheaders.min.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/search.js"></script>
+<script type="text/javascript" src="https://fniessen.github.io/org-html-themes/src/readtheorg_theme/js/readtheorg.js"></script>
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id="MathJax-script"
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
+</head>
+<body>
+<div id="content" class="content">
+<h1 class="title">EKF 15 States</h1>
+<div id="table-of-contents" role="doc-toc">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents" role="doc-toc">
+<ul>
+<li><a href="#org5d76f05">1. Introduction</a></li>
+<li><a href="#orgc0a89c2">2. Implementation of 15 States EKF</a></li>
+<li><a href="#org969db70">3. Graphs</a>
+<ul>
+<li><a href="#orgbca70bb">3.1. Position</a></li>
+<li><a href="#orgf8d1c94">3.2. Velocity Error</a></li>
+<li><a href="#org8bd895b">3.3. Gyro bias Error</a></li>
+<li><a href="#org5e431a2">3.4. Accelerometer Bias Error</a></li>
+<li><a href="#org3790f47">3.5. Attitude Error in Euler angles</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div id="outline-container-org5d76f05" class="outline-2">
+<h2 id="org5d76f05"><span class="section-number-2">1.</span> Introduction</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+In this paper I&rsquo;ve implemented 15 EKF states , The motion model has been implemented by J.Farrel book on aided navigation .
+</p>
+\begin{equation}
+\begin{bmatrix}
+\delta\dot{\boldsymbol{p}} \\
+\delta\dot{\boldsymbol{v}} \\
+\dot{\boldsymbol{\rho}} \\
+\delta\dot{\boldsymbol{x}}_a \\
+\delta\dot{\boldsymbol{x}}_g
+\end{bmatrix}
+=
+\begin{bmatrix}
+\boldsymbol{F}_{pp} & \boldsymbol{F}_{pv} & \boldsymbol{F}_{p\rho} & \boldsymbol{0} & \boldsymbol{0} \\
+\boldsymbol{F}_{vp} & \boldsymbol{F}_{vv} & \boldsymbol{F}_{v\rho} & -\boldsymbol{R}_b^n \boldsymbol{F}_{va} & \boldsymbol{0} \\
+\boldsymbol{F}_{\rho p} & \boldsymbol{F}_{\rho v} & \boldsymbol{F}_{\rho\rho} & \boldsymbol{0} & \boldsymbol{R}_b^n \boldsymbol{F}_{\rho g} \\
+\boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} & \boldsymbol{F}_{aa} & \boldsymbol{0} \\
+\boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} & \boldsymbol{F}_{gg}
+\end{bmatrix}
+\begin{bmatrix}
+\delta\boldsymbol{p} \\
+\delta\boldsymbol{v} \\
+\boldsymbol{\rho} \\
+\delta\boldsymbol{x}_a \\
+\delta\boldsymbol{x}_g
+\end{bmatrix}
++
+\begin{bmatrix}
+\boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} \\
+-\boldsymbol{R}_b^n & \boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} \\
+\boldsymbol{0} & \boldsymbol{R}_b^n & \boldsymbol{0} & \boldsymbol{0} \\
+\boldsymbol{0} & \boldsymbol{0} & \boldsymbol{I} & \boldsymbol{0} \\
+\boldsymbol{0} & \boldsymbol{0} & \boldsymbol{0} & \boldsymbol{I}
+\end{bmatrix}
+\begin{bmatrix}
+\boldsymbol{\nu}_a \\
+\boldsymbol{\nu}_g \\
+\boldsymbol{\omega}_a \\
+\boldsymbol{\omega}_g
+\end{bmatrix}
+\tag{11.1}
+\end{equation}
+
+<p>
+where the top left of the F equation is
+</p>
+\begin{equation}
+\mathbf{F_{{1:9,1:9}}} =
+\left[
+\begin{array}{ccccccccc}
+0 & 0 & \dfrac{\rho_E}{R_e} & \dfrac{1}{R_e} & 0 & 0 & 0 & 0 & 0 \\
+-\dfrac{\rho_D}{\cos(\phi)} & 0 & -\dfrac{\rho_N}{R_e \cos(\phi)} & 0 & \dfrac{1}{R_e \cos(\phi)} & 0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 & 0 & -1 & 0 & 0 & 0 \\
+\hline
+F_{41} & 0 & F_{43} & k_D & 2\omega_D & -\rho_E & 0 & f_D & -f_E \\
+F_{51} & 0 & F_{53} & F_{54} & F_{55} & F_{56} & -f_D & 0 & f_N \\
+-2v_E\Omega_D & 0 & F_{63} & 2\rho_E & -2\omega_N & 0 & f_E & -f_N & 0 \\
+\hline
+-\Omega_D & 0 & \dfrac{\rho_N}{R_e} & 0 & -\dfrac{1}{R_e} & 0 & 0 & \omega_D & -\omega_E \\
+0 & 0 & \dfrac{\rho_E}{R_e} & \dfrac{1}{R_e} & 0 & 0 & -\omega_D & 0 & \omega_N \\
+F_{91} & 0 & \dfrac{\rho_D}{R_e} & 0 & \dfrac{\tan(\phi)}{R_e} & 0 & \omega_E & -\omega_N & 0 \\
+\end{array}
+\right]
+\tag{11.80}
+\end{equation}
+
+<p>
+and here are the constants that I&rsquo;m using 
+</p>
+\begin{array}{ll}
+\Omega_N = \omega_{ie} \cos(\phi) & F_{41} = -2\Omega_N v_e - \dfrac{\rho_N v_e}{\cos^2(\phi)} \\
+\Omega_D = -\omega_{ie} \sin(\phi) & F_{43} = \rho_E k_D - \rho_N \rho_D \\
+\rho_N = \dfrac{v_e}{R_e} & F_{51} = 2(\Omega_N v_n + \Omega_D v_d) + \dfrac{\rho_N v_n}{\cos^2(\phi)} \\
+\rho_E = \dfrac{-v_n}{R_e} & F_{53} = -\rho_E \rho_D - k_D \rho_N \\
+\rho_D = \dfrac{-v_e \tan(\phi)}{R_e} & F_{54} = -(\omega_D + \Omega_D) \\
+\omega_N = \Omega_N + \rho_N & F_{55} = k_D - \rho_E \tan(\phi) \\
+\omega_E = \rho_E & F_{56} = \omega_N + \Omega_N \\
+\omega_D = \Omega_D + \rho_D & F_{63} = \rho_N^2 + \rho_E^2 - 2\dfrac{g}{R_e} \\
+k_D = \dfrac{v_d}{R_e} & F_{91} = \Omega_N + \dfrac{\rho_N}{\cos^2(\phi)}
+\end{array}
+</div>
+</div>
+<div id="outline-container-orgc0a89c2" class="outline-2">
+<h2 id="orgc0a89c2"><span class="section-number-2">2.</span> Implementation of 15 States EKF</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+Here are the graphs of the following input as gyro and accelerometer , The simulation runs for 60 secs , there are IMU measurement
+gyro and accelerometer each 0.01 seconds and a GNSS Measurement every second . Also note that this simulation runs in navigation coordinate system
+where the latitude and longtitude are in radians which makes them really really small 
+</p>
+
+<p>
+\[acc(t) =\begin{pmatrix}
+200 * sin(2 t) \\
+0 \\
+0 
+\end{pmatrix}
+\]
+</p>
+
+
+<p>
+and the gyro reading is 
+</p>
+
+
+
+<p>
+\[ gyro(t) =
+\begin{pmatrix}
+0.02 * sin(10 t) \\
+0 \\
+0.3 
+\end{pmatrix}\]
+</p>
+</div>
+</div>
+<div id="outline-container-org969db70" class="outline-2">
+<h2 id="org969db70"><span class="section-number-2">3.</span> Graphs</h2>
+<div class="outline-text-2" id="text-3">
+</div>
+<div id="outline-container-orgbca70bb" class="outline-3">
+<h3 id="orgbca70bb"><span class="section-number-3">3.1.</span> Position</h3>
+<div class="outline-text-3" id="text-3-1">
+
+<div id="orgbd3abdf" class="figure">
+<p><img src="./estimation/pos.png" alt="pos.png" />
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-orgf8d1c94" class="outline-3">
+<h3 id="orgf8d1c94"><span class="section-number-3">3.2.</span> Velocity Error</h3>
+<div class="outline-text-3" id="text-3-2">
+
+<div id="orgd0d0caf" class="figure">
+<p><img src="./estimation/vel_state.png" alt="vel_state.png" />
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-org8bd895b" class="outline-3">
+<h3 id="org8bd895b"><span class="section-number-3">3.3.</span> Gyro bias Error</h3>
+<div class="outline-text-3" id="text-3-3">
+
+<div id="org0ff72a6" class="figure">
+<p><img src="./estimation/gyro_bias.png" alt="gyro_bias.png" />
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-org5e431a2" class="outline-3">
+<h3 id="org5e431a2"><span class="section-number-3">3.4.</span> Accelerometer Bias Error</h3>
+<div class="outline-text-3" id="text-3-4">
+
+<div id="org5d44660" class="figure">
+<p><img src="./estimation/accel_bias.png" alt="accel_bias.png" />
+</p>
+</div>
+</div>
+</div>
+<div id="outline-container-org3790f47" class="outline-3">
+<h3 id="org3790f47"><span class="section-number-3">3.5.</span> Attitude Error in Euler angles</h3>
+<div class="outline-text-3" id="text-3-5">
+
+<div id="org64d732d" class="figure">
+<p><img src="./estimation/att.png" alt="att.png" />
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Barak-Nadav Diker</p>
+<p class="date">Created: 2025-06-04 Wed 15:21</p>
+</div>
+</body>
+</html>
