@@ -17,6 +17,42 @@ f = 1 / 298.257223563
 b = a * (1 - f)
 e2 = 1 - (b**2 / a**2)
 
+def plot_trajectory_with_axes(positions, rotations, axis_length=0.1):
+    """
+    Plot 3D trajectory with orientation axes.
+
+    Parameters:
+    - positions: Nx3 array of 3D positions
+    - rotations: Nx3x3 array of rotation matrices corresponding to each position
+    - axis_length: length of each axis drawn
+    """
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Plot the trajectory
+    ax.plot(positions[:, 0], positions[:, 1], positions[:, 2], label='Trajectory', color='gray')
+
+    for pos, R in zip(positions, rotations):
+        # Origin of the axes
+        origin = pos
+
+        # Extract rotated axes
+        x_axis = R[:, 0] * axis_length
+        y_axis = R[:, 1] * axis_length
+        z_axis = R[:, 2] * axis_length * 0.1
+
+        # Plot axes as quivers
+        ax.quiver(*origin, *x_axis, color='r', arrow_length_ratio=0.0, linewidth=1)
+        ax.quiver(*origin, *y_axis, color='g', arrow_length_ratio=0.0, linewidth=1)
+        ax.quiver(*origin, *z_axis, color='b', arrow_length_ratio=0.0, linewidth=1)
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    ax.set_title('3D Trajectory with Orientation Axes')
+    ax.legend()
+    ax.set_box_aspect([1,1,1])
+    plt.show()
 def gravity(latitude_deg: float, height: float) -> float:
     """Compute gravity at given latitude and height."""
     lat = np.radians(latitude_deg)
@@ -93,6 +129,7 @@ def simulation(sim_time,func_gt_acc,func_gt_gyro , Q , x_gt,x_est,P,accel_noise_
     phi , la ,h = p 
     v_n , v_e , v_d = v
 
+    rotations = []
     for k in range(steps):
         t = k * dt
         b_a_true[:, k] = accel_bias
@@ -114,7 +151,10 @@ def simulation(sim_time,func_gt_acc,func_gt_gyro , Q , x_gt,x_est,P,accel_noise_
                                                                              v_n,v_e,v_d,
                                                                              R ,
                                                                              f_ib_b , omega_ib_b,b_a,b_g)
-        r = Rot.from_matrix(R)
+        #r = Rot.from_matrix(R)
+        if k % 100 == 0:
+            rotations.append(R)
+            pass
         #att_true[:,k] = np.array(r.as_euler('xyz'))
         att_true[:,k] = np.array([ np.arctan2(R[2,1],R[2,2]) , -np.arcsin(R[2,0]) ,np.arctan2(R[1,0],R[0,0])   ])
         pos_true[0, k] = phi
@@ -131,6 +171,7 @@ def simulation(sim_time,func_gt_acc,func_gt_gyro , Q , x_gt,x_est,P,accel_noise_
     #gyro_noise_std = 0.002
     #accel_noise_std = 100.0
     
+    rotations = np.array(rotations)
     imu_gyro = gyro_true - gyro_bias[:, None] + np.random.randn(3, steps) * gyro_noise_std[:, None]
     imu_accel = acc_true  - accel_bias[:, None] + np.random.randn(3, steps) * accel_noise_std[:, None]
     
@@ -243,6 +284,9 @@ def simulation(sim_time,func_gt_acc,func_gt_gyro , Q , x_gt,x_est,P,accel_noise_
     #print(b_a)
     #print(b_g)
     draw_3d(x_nom[0] , x_nom[1] , x_nom[2] , pos_true[0] , pos_true[1], pos_true[2])
+
+
+    
     import matplotlib.pyplot as plt
     
     # Prepare data for plotting
